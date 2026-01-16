@@ -1,0 +1,16 @@
+ipykernel
+fastapi
+uvicorn
+scikit-learn
+pandas
+numpy
+nltk
+spacy
+# Make sure to also install the language model separately:
+# python -m spacy download en_core_web_sm
+joblib
+matplotlib
+seaborn
+shap
+pytest
+httpx
