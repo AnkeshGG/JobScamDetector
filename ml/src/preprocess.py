@@ -1,12 +1,26 @@
 # ml/src/preprocess.py
 import re
+
+import nltk
 import spacy
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
 nlp = spacy.load("en_core_web_sm")
-STOP = set(stopwords.words('english'))
-LEMMA = WordNetLemmatizer()
+try:
+    STOP = set(stopwords.words('english'))
+except LookupError:
+    nltk.download('stopwords')
+    STOP = set(stopwords.words('english'))
+
+
+try:
+    LEMMA = WordNetLemmatizer()
+except LookupError:
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')
+    LEMMA = WordNetLemmatizer()
+
 
 def clean_text(text: str) -> str:
     text = text or ""
