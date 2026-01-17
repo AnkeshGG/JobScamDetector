@@ -6,8 +6,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 def evaluate_model(model, X_test, y_test, out_path="ml/reports/metrics.json"):
     """Evaluate model and save metrics + confusion matrix."""
     probs = model.predict_proba(X_test)[:, 1]
-    THRESHOLD = 0.65
-    y_pred = (probs > THRESHOLD).astype(int)
+    y_pred = (probs > 0.5).astype(int)
     report = classification_report(y_test, y_pred, output_dict=True)
     cm = confusion_matrix(y_test, y_pred)
 

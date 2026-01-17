@@ -5,8 +5,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import LinearSVC
 from sklearn.metrics import classification_report, confusion_matrix
 import joblib
 from preprocess import preprocess_text
@@ -71,23 +69,13 @@ logger.info("Training Naive Bayes...")
 nb = MultinomialNB(alpha=0.1)
 nb.fit(X_train_vec, y_train)
 
-logger.info("Training Random Forest...")
-rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
-rf.fit(X_train_vec, y_train)
-
-logger.info("Training Linear SVM...")
-svm = LinearSVC(class_weight={0: 1.5, 1: 1})
-svm.fit(X_train_vec, y_train)
-
 # Evaluate
 logger.info("Evaluating all models...")
 results = {}
 
 models = {
     "logreg": logreg,
-    "nb": nb,
-    "rf": rf,
-    "svm": svm
+    "nb": nb
 }
 
 results = {}
@@ -117,8 +105,6 @@ joblib.dump(logreg, f"{MODEL_DIR}/classifier.joblib")
 # Explicit individual models
 joblib.dump(logreg, f"{MODEL_DIR}/logreg.joblib")
 joblib.dump(nb, f"{MODEL_DIR}/nb.joblib")
-joblib.dump(rf, f"{MODEL_DIR}/rf.joblib")
-joblib.dump(svm, f"{MODEL_DIR}/svm.joblib")
 
 # Vectorizer
 joblib.dump(vectorizer, f"{MODEL_DIR}/vectorizer.joblib")
