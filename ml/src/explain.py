@@ -13,22 +13,41 @@ def top_terms_logreg(vectorizer, clf, top_k: int = 10):
     return [(feature_names[i], float(coefs[i])) for i in top_idx]
 
 
+RULE_WEIGHTS = {
+    "payment_request": 0.4,
+    "personal_info": 0.5,
+    "whatsapp_only": 0.3,
+    "urgency": 0.2
+}
+
 def keyword_risks(text: str):
     """
     Rule-based keyword risk detection.
     """
-    risks = []
-    rules = {
-        "payment_request": ["wire transfer","western union","pay fee","processing fee","training fee","fee", "payment", "deposit"],
-        "whatsapp_only": "whatsapp" in text,
-        "personal_info": ["ssn","aadhaar","pan","passport","bank account","credit card"],
-        "contact_only": ["whatsapp","telegram","dm me","text only"],
-        "urgent_hiring": "urgent" in text,
-        "urgency": ["urgent","immediate joining","limited slots","act now"],
-    }
+    if not text:
+        return [], 0.0
+
     lower = text.lower()
+    risks = []
+    risk_score = 0.0
+
+    rules = {
+        "payment_request": [
+            "registration fee", "training fee", "pay upfront"
+        ],
+        "whatsapp_only": ["whatsapp only"],
+        "personal_info": [
+            "aadhaar", "pan", "bank account", "credit card"
+        ],
+        "urgency": [
+            "urgent hiring", "limited slots", "act now"
+        ]
+    }
+
     for label, kws in rules.items():
         hits = [k for k in kws if k in lower]
         if hits:
             risks.append({"rule": label, "keywords": hits})
-    return risks
+            risk_score += RULE_WEIGHTS[label]
+
+    return risks, min(risk_score, 1.0)

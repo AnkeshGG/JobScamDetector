@@ -7,7 +7,8 @@ from backend.app.services.storage import insert_prediction, list_history
 from ml.src.explain import keyword_risks, top_terms_logreg
 
 router = APIRouter()
-model = ScamModel("ml/models/vectorizer.joblib", "ml/models/classifier.joblib")
+model = ScamModel()
+
 
 class PredictRequest(BaseModel):
     title: Optional[str] = ""
@@ -27,40 +28,39 @@ def health():
 
 
 @router.post("/predict")
+@router.post("/predict")
 def predict(req: PredictRequest):
-    # Convert Pydantic model → dict
     job_payload = req.dict()
 
-    # ✅ NEW predict signature
-    label, confidence, pre_text = model.predict(job_payload)
+    ml_prob, pre_text = model.predict(job_payload)
 
-    # Explanation
+    risks, rule_score = keyword_risks(pre_text)
+
+    final_score = 0.7 * ml_prob + 0.3 * rule_score
+
+    label = 1 if final_score >= 0.5 else 0
+
     explanation = {
-        "risks": keyword_risks(pre_text)
+        "risks": risks
     }
 
     try:
         explanation["top_terms"] = top_terms_logreg(
             model.vectorizer,
-            model.clf
+            model.logreg
         )
     except Exception:
         explanation["top_terms"] = []
 
-    # Store in DB
-    insert_prediction(
-        pre_text,
-        label,
-        confidence,
-        explanation
-    )
+    insert_prediction(pre_text, label, final_score, explanation)
 
     return {
         "label": "Fake" if label == 1 else "Real",
-        "confidence": round(confidence * 100, 2),
+        "confidence": round(final_score * 100, 2),
+        "ml_probability": round(ml_prob * 100, 2),
+        "rule_score": round(rule_score * 100, 2),
         "explanation": explanation
     }
-
 
 @router.get("/history")
 def history(limit: int = 50, offset: int = 0):
