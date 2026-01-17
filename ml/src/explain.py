@@ -19,9 +19,11 @@ def keyword_risks(text: str):
     """
     risks = []
     rules = {
-        "payment_request": ["wire transfer","western union","pay fee","processing fee","training fee"],
+        "payment_request": ["wire transfer","western union","pay fee","processing fee","training fee","fee", "payment", "deposit"],
+        "whatsapp_only": "whatsapp" in text,
         "personal_info": ["ssn","aadhaar","pan","passport","bank account","credit card"],
         "contact_only": ["whatsapp","telegram","dm me","text only"],
+        "urgent_hiring": "urgent" in text,
         "urgency": ["urgent","immediate joining","limited slots","act now"],
     }
     lower = text.lower()

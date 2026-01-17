@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import LinearSVC
 from sklearn.metrics import classification_report, confusion_matrix
 import joblib
 from preprocess import preprocess_text
@@ -29,8 +30,22 @@ ensure_dir(REPORT_DIR)
 # Load dataset
 logger.info("Loading dataset...")
 df = pd.read_csv(DATA_PATH)
-df = df.dropna(subset=["description", "fraudulent"])
-df["text"] = df["description"].apply(preprocess_text)
+TEXT_COLS = [
+    "title",
+    "description",
+    "requirements",
+    "company_profile",
+    "benefits",
+    "industry",
+    "employment_type",
+    "location",
+    "salary_range"
+]
+
+df[TEXT_COLS] = df[TEXT_COLS].fillna("")
+df["text"] = df[TEXT_COLS].agg(" ".join, axis=1)
+df["text"] = df["text"].apply(preprocess_text)
+
 X = df["text"]
 y = df["fraudulent"]
 
@@ -46,7 +61,10 @@ X_test_vec = vectorizer.transform(X_test)
 
 # Train models
 logger.info("Training Logistic Regression...")
-logreg = LogisticRegression(max_iter=1000, class_weight='balanced')
+logreg = LogisticRegression(
+    max_iter=2000,
+    class_weight={0: 1.5, 1: 1}
+)
 logreg.fit(X_train_vec, y_train)
 
 logger.info("Training Naive Bayes...")
@@ -57,21 +75,53 @@ logger.info("Training Random Forest...")
 rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
 rf.fit(X_train_vec, y_train)
 
+logger.info("Training Linear SVM...")
+svm = LinearSVC(class_weight={0: 1.5, 1: 1})
+svm.fit(X_train_vec, y_train)
+
 # Evaluate
-logger.info("Evaluating models...")
+logger.info("Evaluating all models...")
 results = {}
-for name, model in [("logreg", logreg), ("nb", nb), ("rf", rf)]:
+
+models = {
+    "logreg": logreg,
+    "nb": nb,
+    "rf": rf,
+    "svm": svm
+}
+
+results = {}
+
+for name, model in models.items():
     logger.info(f"Evaluating {name}...")
-    report, cm = evaluate_model(model, X_test_vec, y_test, out_path=f"{REPORT_DIR}/{name}_metrics.json")
+
+    report, cm = evaluate_model(
+        model,
+        X_test_vec,
+        y_test,
+        out_path=f"{REPORT_DIR}/{name}_metrics.json"
+    )
+
     results[name] = {
-        "report": report,
+        "classification_report": report,
         "confusion_matrix": cm.tolist()
     }
 
 # Save best model (LogReg)
-logger.info("Saving best model...")
-joblib.dump(vectorizer, f"{MODEL_DIR}/vectorizer.joblib")
+
+logger.info("Saving trained models...")
+
+# Primary production model
 joblib.dump(logreg, f"{MODEL_DIR}/classifier.joblib")
+
+# Explicit individual models
+joblib.dump(logreg, f"{MODEL_DIR}/logreg.joblib")
+joblib.dump(nb, f"{MODEL_DIR}/nb.joblib")
+joblib.dump(rf, f"{MODEL_DIR}/rf.joblib")
+joblib.dump(svm, f"{MODEL_DIR}/svm.joblib")
+
+# Vectorizer
+joblib.dump(vectorizer, f"{MODEL_DIR}/vectorizer.joblib")
 
 # Save top terms
 logger.info("Extracting top terms...")
@@ -80,6 +130,15 @@ save_json(top_terms, f"{REPORT_DIR}/top_terms.json")
 
 # Save summary
 logger.info("Saving summary report...")
-save_json(results, f"{REPORT_DIR}/metrics.json")
+save_json(results, f"{REPORT_DIR}/all_model_metrics.json")
 
 logger.info("Training complete.")
+
+# Save threshold for backend use
+from utils import save_json
+
+save_json(
+    {"threshold": 0.65},
+    f"{REPORT_DIR}/threshold.json"
+)
+

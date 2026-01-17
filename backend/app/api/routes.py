@@ -1,6 +1,6 @@
-#backend/app/api/routes.py
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from typing import Optional
 
 from backend.app.services.model import ScamModel
 from backend.app.services.storage import insert_prediction, list_history
@@ -10,26 +10,57 @@ router = APIRouter()
 model = ScamModel("ml/models/vectorizer.joblib", "ml/models/classifier.joblib")
 
 class PredictRequest(BaseModel):
-    text: str = Field(min_length=20)
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    requirements: Optional[str] = ""
+    company_profile: Optional[str] = ""
+    benefits: Optional[str] = ""
+    industry: Optional[str] = ""
+    employment_type: Optional[str] = ""
+    location: Optional[str] = ""
+    salary_range: Optional[str] = ""
+
 
 @router.get("/health")
 def health():
     return {"status": "ok"}
 
+
 @router.post("/predict")
 def predict(req: PredictRequest):
-    label, confidence, pre_text = model.predict(req.text)
-    explanation = {"risks": keyword_risks(req.text)}
+    # Convert Pydantic model → dict
+    job_payload = req.dict()
+
+    # ✅ NEW predict signature
+    label, confidence, pre_text = model.predict(job_payload)
+
+    # Explanation
+    explanation = {
+        "risks": keyword_risks(pre_text)
+    }
+
     try:
-        explanation["top_terms"] = top_terms_logreg(model.vectorizer, model.clf)
+        explanation["top_terms"] = top_terms_logreg(
+            model.vectorizer,
+            model.clf
+        )
     except Exception:
         explanation["top_terms"] = []
-    insert_prediction(req.text, label, confidence, explanation)
+
+    # Store in DB
+    insert_prediction(
+        pre_text,
+        label,
+        confidence,
+        explanation
+    )
+
     return {
         "label": "Fake" if label == 1 else "Real",
         "confidence": round(confidence * 100, 2),
         "explanation": explanation
     }
+
 
 @router.get("/history")
 def history(limit: int = 50, offset: int = 0):
